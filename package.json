@@ -1,0 +1,13 @@
+{
+  "name": "bridge-battle-3d",
+  "version": "1.0.0",
+  "description": "3D online multiplayer bridge battle game",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "socket.io": "^4.6.2"
+  }
+}

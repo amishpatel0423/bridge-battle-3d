@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>🌉 Bridge Battle 3D</title>
+<style>
+/* ── RESET & BASE ─────────────────────────────────────── */
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+html,body{width:100%;height:100%;overflow:hidden;background:#0d1117;color:#fff;font-family:system-ui,sans-serif;touch-action:none}
+button{cursor:pointer;border:none;font-family:inherit}
+
+/* ── SCREENS ──────────────────────────────────────────── */
+.screen{position:fixed;inset:0;display:none;align-items:center;justify-content:center;z-index:10}
+.screen.active{display:flex}
+
+/* ── LANDING & LOBBY ──────────────────────────────────── */
+#screen-landing{background:linear-gradient(135deg,#0d1b2a,#1a2a4a)}
+#screen-lobby  {background:linear-gradient(135deg,#0d1b2a,#1a2a4a)}
+#screen-win    {background:rgba(0,0,0,.85)}
+
+.card{
+  background:rgba(255,255,255,.07);
+  border:1px solid rgba(255,255,255,.15);
+  border-radius:20px;
+  padding:32px 28px;
+  width:min(380px,92vw);
+  display:flex;flex-direction:column;gap:14px;
+}
+.logo{font-size:clamp(28px,6vw,42px);font-weight:900;text-align:center;
+  background:linear-gradient(135deg,#ffd700,#ff8c00,#ff4500);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+  letter-spacing:-.5px;margin-bottom:4px}
+.logo-sub{text-align:center;color:rgba(255,255,255,.45);font-size:14px;margin-top:-10px}
+
+input,select{
+  padding:12px 16px;border-radius:12px;
+  background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);
+  color:#fff;font-size:16px;width:100%;outline:none;
+  transition:border-color .2s;
+}
+input::placeholder{color:rgba(255,255,255,.35)}
+input:focus,select:focus{border-color:rgba(255,180,0,.6)}
+select option{background:#1a2a4a}
+input#input-code{text-transform:uppercase;letter-spacing:3px;font-size:20px;text-align:center}
+
+.btn{
+  padding:14px;border-radius:14px;font-size:17px;font-weight:700;
+  letter-spacing:.3px;transition:transform .12s,filter .12s;
+}
+.btn:active{transform:scale(.96)}
+.btn-primary{background:linear-gradient(135deg,#ffd700,#ff8c00);color:#1a0a00}
+.btn-secondary{background:rgba(255,255,255,.12);color:#fff;border:1px solid rgba(255,255,255,.2)}
+.btn-danger{background:linear-gradient(135deg,#ff4444,#cc0000);color:#fff}
+.btn-green{background:linear-gradient(135deg,#22cc66,#118833);color:#fff}
+.divider{text-align:center;color:rgba(255,255,255,.3);font-size:13px;position:relative}
+.divider::before,.divider::after{content:'';position:absolute;top:50%;width:42%;height:1px;background:rgba(255,255,255,.15)}
+.divider::before{left:0}.divider::after{right:0}
+
+/* Code display */
+.code-box{
+  background:rgba(255,215,0,.1);border:2px solid rgba(255,215,0,.4);
+  border-radius:14px;padding:14px;text-align:center;
+}
+.code-box .label{font-size:12px;color:rgba(255,255,255,.4);margin-bottom:4px}
+.code-box .code{font-size:32px;font-weight:900;letter-spacing:5px;color:#ffd700}
+.code-copy{font-size:13px;color:rgba(255,215,0,.6);margin-top:4px;cursor:pointer}
+.code-copy:hover{color:#ffd700}
+
+/* Lobby player list */
+#lobby-players{display:flex;flex-direction:column;gap:8px;max-height:220px;overflow-y:auto}
+.lobby-player{
+  display:flex;align-items:center;gap:10px;
+  background:rgba(255,255,255,.06);border-radius:10px;padding:10px 14px;
+}
+.island-badge{
+  padding:3px 9px;border-radius:20px;font-size:11px;font-weight:700;
+}
+.i0{background:#4488ff22;color:#88aaff;border:1px solid #4488ff55}
+.i1{background:#ffaa2222;color:#ffcc66;border:1px solid #ffaa2255}
+.i2{background:#ff444422;color:#ff8877;border:1px solid #ff444455}
+.i3{background:#44cc8822;color:#88eeaa;border:1px solid #44cc8855}
+.team-badge{margin-left:auto;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:700}
+.tA{background:#4488ff33;color:#88aaff;border:1px solid #4488ff66}
+.tB{background:#ff444433;color:#ff8877;border:1px solid #ff444466}
+
+/* ── GAME CANVAS ──────────────────────────────────────── */
+#screen-game{background:#000;display:block;padding:0}
+#screen-game.active{display:block}
+#game-canvas{position:fixed;inset:0;width:100%!important;height:100%!important}
+
+/* ── HUD ──────────────────────────────────────────────── */
+#hud{
+  position:fixed;top:0;left:0;right:0;
+  display:none;align-items:flex-start;justify-content:space-between;
+  padding:10px 14px;pointer-events:none;z-index:20;
+}
+#hud.show{display:flex}
+
+.hud-pill{
+  background:rgba(0,0,0,.55);backdrop-filter:blur(8px);
+  border:1px solid rgba(255,255,255,.12);border-radius:14px;
+  padding:8px 14px;display:flex;flex-direction:column;gap:3px;font-size:14px;
+}
+.hud-row{display:flex;align-items:center;gap:6px}
+.hud-val{font-weight:700;font-size:16px}
+#hud-bridge-bar{
+  width:100%;height:6px;background:rgba(255,255,255,.15);
+  border-radius:3px;overflow:hidden;margin-top:2px;
+}
+#hud-bridge-fill{height:100%;background:#ffd700;border-radius:3px;transition:width .3s}
+
+/* Minimap */
+#hud-center{display:flex;flex-direction:column;align-items:center;gap:4px}
+#minimap-canvas{border-radius:8px;border:1px solid rgba(255,255,255,.15);background:rgba(0,0,0,.5)}
+#room-code-hud{font-size:11px;color:rgba(255,255,255,.35);letter-spacing:2px}
+
+/* ── MOBILE CONTROLS ──────────────────────────────────── */
+#mobile-controls{
+  position:fixed;bottom:0;left:0;right:0;
+  display:none;justify-content:space-between;align-items:flex-end;
+  padding:16px;z-index:20;pointer-events:none;
+}
+#mobile-controls.show{display:flex}
+#joystick-zone{width:130px;height:130px;pointer-events:all}
+#action-btns{display:flex;flex-wrap:wrap;gap:10px;justify-content:flex-end;pointer-events:all;max-width:220px}
+.act-btn{
+  width:64px;height:64px;border-radius:50%;
+  background:rgba(0,0,0,.6);border:2px solid rgba(255,255,255,.25);
+  color:#fff;font-size:13px;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;gap:1px;
+  backdrop-filter:blur(6px);transition:transform .1s,background .15s;
+  touch-action:manipulation;
+}
+.act-btn:active{transform:scale(.9)}
+.act-btn.can-do{background:rgba(255,215,0,.25);border-color:#ffd700;color:#ffd700}
+.act-btn .icon{font-size:22px}
+.act-btn .label{font-size:9px;font-weight:700;letter-spacing:.3px}
+
+/* ── UPGRADE MENU ─────────────────────────────────────── */
+#upgrade-menu{
+  position:fixed;inset:0;display:none;align-items:center;justify-content:center;
+  z-index:30;background:rgba(0,0,0,.7);
+}
+#upgrade-menu.show{display:flex}
+#upgrade-card{
+  background:#0f1e33;border:1px solid rgba(255,215,0,.3);
+  border-radius:20px;padding:24px;width:min(340px,90vw);
+  display:flex;flex-direction:column;gap:12px;
+}
+#upgrade-card h3{text-align:center;color:#ffd700;font-size:20px}
+.upg-btn{
+  display:flex;align-items:center;gap:12px;padding:12px 16px;
+  background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);
+  border-radius:12px;color:#fff;font-size:15px;text-align:left;
+  transition:background .15s;width:100%;
+}
+.upg-btn:not(:disabled):hover{background:rgba(255,215,0,.1);border-color:rgba(255,215,0,.4)}
+.upg-btn:disabled{opacity:.4;cursor:default}
+.upg-btn .upg-icon{font-size:24px;width:32px;text-align:center}
+.upg-btn .upg-info{flex:1}
+.upg-btn .upg-name{font-weight:700}
+.upg-btn .upg-desc{font-size:12px;color:rgba(255,255,255,.5);margin-top:2px}
+.upg-cost{font-size:13px;color:#ffd700;font-weight:700;white-space:nowrap}
+
+/* ── TOAST ────────────────────────────────────────────── */
+#toast{
+  position:fixed;top:80px;left:50%;transform:translateX(-50%);
+  background:rgba(0,0,0,.8);color:#fff;padding:10px 20px;border-radius:24px;
+  font-size:14px;pointer-events:none;z-index:40;
+  opacity:0;transition:opacity .3s;white-space:nowrap;
+}
+
+/* ── KEY HINTS (desktop) ──────────────────────────────── */
+#key-hints{
+  position:fixed;bottom:10px;left:50%;transform:translateX(-50%);
+  font-size:11px;color:rgba(255,255,255,.25);pointer-events:none;z-index:20;
+  background:rgba(0,0,0,.3);padding:4px 12px;border-radius:20px;
+  display:none;white-space:nowrap;
+}
+
+/* ── WIN SCREEN ───────────────────────────────────────── */
+#win-card{
+  background:rgba(10,20,40,.95);border:2px solid rgba(255,215,0,.5);
+  border-radius:24px;padding:36px;text-align:center;
+  display:flex;flex-direction:column;gap:16px;width:min(340px,88vw);
+}
+#win-trophy{font-size:64px}
+#win-text{font-size:24px;font-weight:900;color:#ffd700;line-height:1.3}
+#win-sub{font-size:15px;color:rgba(255,255,255,.5)}
+
+/* ── SPINNER ──────────────────────────────────────────── */
+.spinner{
+  width:40px;height:40px;border:3px solid rgba(255,255,255,.1);
+  border-top-color:#ffd700;border-radius:50%;animation:spin .8s linear infinite;
+  margin:0 auto;
+}
+@keyframes spin{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+
+<!-- ── LANDING ───────────────────────────────────────────────── -->
+<div id="screen-landing" class="screen active">
+  <div class="card">
+    <div class="logo">🌉 Bridge Battle 3D</div>
+    <div class="logo-sub">Online · Mobile · 3D</div>
+
+    <input id="input-name" placeholder="Your name" maxlength="16" autocomplete="off">
+    <select id="select-teams">
+      <option value="solo">Free-for-all (1–4 players)</option>
+      <option value="2v2">2v2 Teams (Team A vs Team B)</option>
+    </select>
+    <button class="btn btn-primary" id="btn-create">🎮 Create Game</button>
+
+    <div class="divider">or join existing</div>
+    <input id="input-code" placeholder="ROOM CODE" maxlength="6" autocomplete="off">
+    <button class="btn btn-secondary" id="btn-join">🔗 Join Game</button>
+  </div>
+</div>
+
+<!-- ── LOBBY ─────────────────────────────────────────────────── -->
+<div id="screen-lobby" class="screen">
+  <div class="card">
+    <div class="logo" style="font-size:28px">🌉 Lobby</div>
+    <div class="code-box">
+      <div class="label">SHARE THIS CODE</div>
+      <div class="code" id="lobby-code">------</div>
+      <div class="code-copy" onclick="copyCode()">📋 Tap to copy</div>
+    </div>
+    <div id="lobby-players"></div>
+    <div id="lobby-team-btns" style="display:none;gap:8px;flex-direction:row">
+      <button class="btn btn-secondary" style="flex:1" onclick="setTeam('A')">🔵 Team A</button>
+      <button class="btn btn-secondary" style="flex:1" onclick="setTeam('B')">🔴 Team B</button>
+    </div>
+    <button class="btn btn-green" id="btn-start" style="display:none">▶ Start Game</button>
+    <p style="text-align:center;color:rgba(255,255,255,.35);font-size:13px" id="lobby-waiting">
+      Waiting for host to start…
+    </p>
+  </div>
+</div>
+
+<!-- ── GAME ──────────────────────────────────────────────────── -->
+<div id="screen-game" class="screen">
+  <canvas id="game-canvas"></canvas>
+
+  <!-- HUD -->
+  <div id="hud">
+    <div class="hud-pill">
+      <div class="hud-row">💎 <span class="hud-val" id="hud-gems">0</span></div>
+      <div class="hud-row">📦 <span class="hud-val" id="hud-blocks">0/3</span></div>
+      <div class="hud-row" style="font-size:12px">Bridge:
+        <span id="hud-bridge-num" style="margin-left:4px">0/10</span>
+      </div>
+      <div id="hud-bridge-bar"><div id="hud-bridge-fill" style="width:0%"></div></div>
+    </div>
+    <div id="hud-center">
+      <canvas id="minimap-canvas" width="90" height="90"></canvas>
+      <div id="room-code-hud"></div>
+    </div>
+    <div class="hud-pill" style="align-items:flex-end">
+      <div class="hud-row" style="font-size:12px">⚡ <span id="hud-spd">Lv0</span></div>
+      <div class="hud-row" style="font-size:12px">🧲 <span id="hud-cap">3</span></div>
+      <div id="hud-upg-icons" style="font-size:14px"></div>
+    </div>
+  </div>
+
+  <!-- Mobile controls -->
+  <div id="mobile-controls">
+    <div id="joystick-zone"></div>
+    <div id="action-btns">
+      <button class="act-btn" id="btn-pickup"  onclick="doPickup()">
+        <span class="icon">🧱</span><span class="label">PICK UP</span>
+      </button>
+      <button class="act-btn" id="btn-place" onclick="doPlace()">
+        <span class="icon">📦</span><span class="label">PLACE</span>
+      </button>
+      <button class="act-btn" id="btn-attack" onclick="doAttack()" style="display:none">
+        <span class="icon">⚔️</span><span class="label">ATTACK</span>
+      </button>
+      <button class="act-btn" id="btn-flag" onclick="doGrabFlag()" style="display:none">
+        <span class="icon">🚩</span><span class="label">FLAG!</span>
+      </button>
+      <button class="act-btn" id="btn-upgrade-open" onclick="openUpgrade()" style="display:none">
+        <span class="icon">⚙️</span><span class="label">UPGRADE</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Desktop key hints -->
+  <div id="key-hints">
+    F / SPACE: Pick Up &nbsp;·&nbsp; Q: Place &nbsp;·&nbsp; E: Attack &nbsp;·&nbsp; G: Grab Flag &nbsp;·&nbsp; U: Upgrade
+  </div>
+</div>
+
+<!-- ── UPGRADE MENU ───────────────────────────────────────────── -->
+<div id="upgrade-menu">
+  <div id="upgrade-card">
+    <h3>⚙️ Upgrade Station</h3>
+    <div id="gem-display" style="text-align:center;color:#ffd700;font-size:18px"></div>
+    <button class="upg-btn" id="upg-speed" onclick="buyUpgrade('speed')">
+      <span class="upg-icon">⚡</span>
+      <div class="upg-info">
+        <div class="upg-name">Speed Boost</div>
+        <div class="upg-desc">+25% move speed (max Lv 3)</div>
+      </div>
+      <span class="upg-cost">30 💎</span>
+    </button>
+    <button class="upg-btn" id="upg-carry" onclick="buyUpgrade('carry')">
+      <span class="upg-icon">🧲</span>
+      <div class="upg-info">
+        <div class="upg-name">Carry Capacity</div>
+        <div class="upg-desc">+2 block carry limit (max Lv 3)</div>
+      </div>
+      <span class="upg-cost">50 💎</span>
+    </button>
+    <button class="upg-btn" id="upg-blockPower" onclick="buyUpgrade('blockPower')">
+      <span class="upg-icon">💥</span>
+      <div class="upg-info">
+        <div class="upg-name">Block Power</div>
+        <div class="upg-desc">Place 2 cells at once</div>
+      </div>
+      <span class="upg-cost">80 💎</span>
+    </button>
+    <button class="upg-btn" id="upg-weapon" onclick="buyUpgrade('weapon')">
+      <span class="upg-icon">⚔️</span>
+      <div class="upg-info">
+        <div class="upg-name">Weapon</div>
+        <div class="upg-desc">Break enemy bridge cells</div>
+      </div>
+      <span class="upg-cost">120 💎</span>
+    </button>
+    <button class="btn btn-secondary" onclick="closeUpgrade()">✕ Close</button>
+  </div>
+</div>
+
+<!-- ── WIN ───────────────────────────────────────────────────── -->
+<div id="screen-win" class="screen">
+  <div id="win-card">
+    <div id="win-trophy">🏆</div>
+    <div id="win-text">Player 1 wins!</div>
+    <div id="win-sub">First to grab the flag!</div>
+    <button class="btn btn-primary" id="btn-play-again">🔄 Play Again</button>
+    <button class="btn btn-secondary" onclick="location.reload()">🏠 Main Menu</button>
+  </div>
+</div>
+
+<!-- ── TOAST ─────────────────────────────────────────────────── -->
+<div id="toast"></div>
+
+<!-- ── SCRIPTS ───────────────────────────────────────────────── -->
+<script src="/socket.io/socket.io.js"></script>
+<script src="https://unpkg.com/three@0.158.0/build/three.min.js"></script>
+<script src="https://unpkg.com/nipplejs@0.10.1/dist/nipplejs.min.js"></script>
+<script src="/sounds.js"></script>
+<script src="/game.js"></script>
+</body>
+</html>
